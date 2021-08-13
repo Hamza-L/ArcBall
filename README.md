@@ -1,7 +1,7 @@
 # ArcBall
 Here is the ArcBall UI allowing the user to move about an object in 3D space using only the mouse. This project builds on the VulkanTesting repo, where I test various Vulkan features and implement my own pseudo-engine.
 
-![ArcBall](ArcBall.gif)
+![ArcBall](Arcball.gif)
 ### Features!* 
 
 
