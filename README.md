@@ -14,7 +14,7 @@ Here is the ArcBall UI allowing the user to move about an object in 3D space usi
 6) User input
 7) Scroll to zoom! makes use of perspective zoom rather than move the camera.
 
-###How it works!
+### How it works!
 This implementation builds upon the **Ken Shoemake**'s paper _ARCBALL: A User Interface for Specifying
 Three-Dimensional Orientation Using a Mouse_. Mouse coordinates are converted
 vectors form the center of a fictional unit sphere. The starting mouse position and the ending mouse position allow us to establish an axis or rotation. Matrix accumulation allows us the compute rotation at very low cost.
