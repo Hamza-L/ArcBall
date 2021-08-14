@@ -27,8 +27,8 @@ void main() {
     vec3 viewDirection = normalize(-positionForFP );
     vec3 halfVector = normalize( lightDirection + viewDirection);
 
-    float diffuse = max(0.0f,dot( normalForFP, lightDirection));
-    float specular = max(0.0f,dot( normalForFP, halfVector ) );
+    float diffuse = max(0.0f,dot( normcolour.xyz, lightDirection));
+    float specular = max(0.0f,dot( normcolour.xyz, halfVector ) );
     float distanceFromLight = length(lightPos - positionForFP);
 
     if (diffuse == 0.0) {

@@ -136,8 +136,8 @@ namespace hva{
         //M = glm::scale(M,glm::vec3(0.3f));
         //std::cout<<"the number of vertices is: "<<sphere.getVert().size()<<std::endl;
         //std::cout<<"the number of indices is: "<<sphere.getInd().size()<<std::endl;
-
-        modelList.push_back(std::move(std::make_unique<VulkanModel>(device, sphere.getVert(), sphere.getInd() , device.graphicsQueue(), device.getCommandPool(),createTexture("pavingStones.jpg","pavingStonesUV.jpg"))));
+        
+        modelList.push_back(std::move(std::make_unique<VulkanModel>(device, cube1.getVert(), cube1.getInd() , device.graphicsQueue(), device.getCommandPool(),createTexture("pavingStones.jpg","pavingStonesUV.jpg"))));
         modelList.push_back(std::move(std::make_unique<VulkanModel>(device, sphere.getVert(), sphere.getInd() , device.graphicsQueue(), device.getCommandPool(), createTexture("test.jpg","test.jpg"))));
 
         //cube1.transform(glm::mat4(1.2f));
