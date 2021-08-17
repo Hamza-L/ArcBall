@@ -1,18 +1,24 @@
-# ArcBall
-Here is the ArcBall UI allowing the user to move about an object in 3D space using only the mouse. This project builds on the VulkanTesting repo, where I test various Vulkan features and implement my own pseudo-engine.
+## [ArcBall](https://github.com/Hamza-L/ArcBall)
+Here is the ArcBall UI allowing the user to move about an object in 3D space using only the mouse. This project builds on the VulkanEngine repo, where I test various Vulkan features and implement my own pseudo-engine.
 
-![ArcBall](Arcball.gif)
+<img src="https://github.com/Hamza-L/ArcBall/blob/master/Arcball.gif?raw=true" alt="ArcBall" width="1100"/>
+
+<img src="https://github.com/Hamza-L/ArcBall/blob/master/ObjImporter.png?raw=true" alt="ArcBall" width="1100"/>
+
+<img src="https://github.com/Hamza-L/ArcBall/blob/master/bunny.gif?raw=true" alt="ArcBall" width="1100"/>
+
+
+
 ### Features!* 
 
-
-
-1) 3D & 2D geometry
-2) Texture from files
-3) UV Normal textures form files
-4) Scene graph, allowing objects to become part of a parent objects, sharing on local coordinate
-5) specular highlight (bling-phong lighting)
-6) User input
-7) Scroll to zoom! makes use of perspective zoom rather than move the camera.
+1. .Obj file importer.
+1. 3D & 2D geometry
+1. Texture from files
+1. UV Normal textures form files
+1. Scene graph, allowing objects to become part of a parent objects, sharing on local coordinate
+1. specular highlight (bling-phong lighting)
+1. User input
+1. Scroll to zoom! makes use of perspective zoom rather than move the camera.
 
 ### How it works!
 This implementation builds upon the **Ken Shoemake**'s paper _ARCBALL: A User Interface for Specifying
