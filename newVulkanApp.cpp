@@ -99,6 +99,14 @@ namespace hva{
 
     void NewVulkanApp::loadModels() {
 
+        ObjImporter object = ObjImporter("bunny",glm::vec4(0.4f,0.4f,0.4f,1.0f));
+        object.transform(glm::scale(glm::mat4(1.0f),glm::vec3(0.7f)));
+
+        //std::cout<<object.getVert().size()<<std::endl;
+
+        center(&object);
+        
+
         //setting up the UboVP matrices
         uboVP.P = glm::perspective(glm::radians(45.0f), (float) vulkanSwapChain->width()/(float)vulkanSwapChain->height(),0.1f, 100.0f);
         uboVP.V = glm::lookAt(glm::vec3(0.0f,1.5f,4.0f), glm::vec3(0.0f,0.0f,0.0f), glm::vec3(0.0f,1.0f,0.0f));
@@ -137,7 +145,7 @@ namespace hva{
         //std::cout<<"the number of vertices is: "<<sphere.getVert().size()<<std::endl;
         //std::cout<<"the number of indices is: "<<sphere.getInd().size()<<std::endl;
         
-        modelList.push_back(std::move(std::make_unique<VulkanModel>(device, cube1.getVert(), cube1.getInd() , device.graphicsQueue(), device.getCommandPool(),createTexture("pavingStones.jpg","pavingStonesUV.jpg"))));
+        modelList.push_back(std::move(std::make_unique<VulkanModel>(device, object.getVert(), object.getInd() , device.graphicsQueue(), device.getCommandPool(),createTexture("pavingStones.jpg","pavingStonesUV.jpg"))));
         modelList.push_back(std::move(std::make_unique<VulkanModel>(device, sphere.getVert(), sphere.getInd() , device.graphicsQueue(), device.getCommandPool(), createTexture("test.jpg","test.jpg"))));
 
         //cube1.transform(glm::mat4(1.2f));
@@ -145,6 +153,42 @@ namespace hva{
         //modelList[1]->setModel(glm::mat4(1.2f));
         //modelList.push c _back(std::move(std::make_unique<VulkanModel>(device, scene.getVert(), scene.getInd()  , device.graphicsQueue(), device.getCommandPool())));
 
+    }
+
+    void NewVulkanApp::center(Node* object){
+        glm::vec3 max = glm::vec3(-INFINITY);
+        glm::vec3 min = glm::vec3(INFINITY);
+
+        for (Vertex v: object->getVert()){
+            if(v.position.x>max.x){
+                max.x = v.position.x;
+            }
+
+            if(v.position.x<min.x){
+                min.x = v.position.x;
+            }
+
+            if(v.position.y>max.y){
+                max.y = v.position.y;
+            }
+
+            if(v.position.y<min.y){
+                min.y = v.position.y;
+            }
+
+            if(v.position.z>max.z){
+                max.z = v.position.z;
+            }
+
+            if(v.position.z<min.z){
+                min.z = v.position.z;
+            }
+        }
+
+        //std::cout<<min.x<<std::endl;
+        //std::cout<<max.x<<std::endl;
+
+        object->transform(glm::translate(glm::mat4(1.0f),glm::vec3(-(max+min)/2.0f)));
     }
 
     Node NewVulkanApp::subdivideNode(Node sourceNode) {
@@ -275,8 +319,8 @@ namespace hva{
         pipelineConfig.pipelineLayout = pipelineLayout;
         if(TEXTURE){
             vulkanPipelines.push_back(std::move(std::make_unique<VulkanPipeline>(device,
-                                                                                 "shaders/textvert.spv",
-                                                                                 "shaders/textfrag.spv",
+                                                                                 "/Users/hamzalah/Documents/gitProjects/ArcBall/shaders/textvert.spv",
+                                                                                 "/Users/hamzalah/Documents/gitProjects/ArcBall/shaders/textfrag.spv",
                                                                                  pipelineConfig)));
         } else {
             vulkanPipelines.push_back(std::move(std::make_unique<VulkanPipeline>(device,
@@ -736,7 +780,7 @@ namespace hva{
         int channels;
 
         //load pixel data for image
-        std::string fileLoc = "textures/" + filename;
+        std::string fileLoc = "/Users/hamzalah/Documents/gitProjects/ArcBall/textures/" + filename;
         stbi_uc * image = stbi_load(fileLoc.c_str(), width, height, &channels, STBI_rgb_alpha);
 
         if(image == NULL){

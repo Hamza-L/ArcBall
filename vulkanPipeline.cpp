@@ -162,7 +162,7 @@ namespace hva{
         configInfo.rasterizationInfo.rasterizerDiscardEnable = VK_FALSE; //removes the fragment stage. no image generated
         configInfo.rasterizationInfo.polygonMode = VK_POLYGON_MODE_FILL;
         configInfo.rasterizationInfo.lineWidth = 1.0f; // width of lines.
-        configInfo.rasterizationInfo.cullMode = VK_CULL_MODE_BACK_BIT; //culls a face of the triangle
+        configInfo.rasterizationInfo.cullMode = VK_CULL_MODE_FRONT_BIT; //culls a face of the triangle
         configInfo.rasterizationInfo.frontFace = VK_FRONT_FACE_CLOCKWISE; //which way is front
         configInfo.rasterizationInfo.depthBiasEnable = VK_FALSE; //depth bias to avoid "shadow acne"
         configInfo.rasterizationInfo.depthBiasConstantFactor = 0.0f;  // Optional

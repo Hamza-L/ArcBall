@@ -27,17 +27,17 @@ void main() {
     vec3 viewDirection = normalize(-positionForFP );
     vec3 halfVector = normalize( lightDirection + viewDirection);
 
-    float diffuse = max(0.0f,dot( normcolour.xyz, lightDirection));
-    float specular = max(0.0f,dot( normcolour.xyz, halfVector ) );
+    float diffuse = max(0.0f,dot( normalForFP, lightDirection));
+    float specular = max(0.0f,dot( normalForFP, halfVector ) );
     float distanceFromLight = length(lightPos - positionForFP);
 
     if (diffuse == 0.0) {
         specular = 0.0;
     } else {
-        specular = pow( specular, 32.0f );
+        specular = pow( specular, 64.0f );
     }
 
-    vec3 scatteredLight = 1.0f/distanceFromLight * colourTex.xyz * diffuse;
+    vec3 scatteredLight = 1.0f/distanceFromLight * fragColour * diffuse;
     vec3 reflectedLight = vec3(1.0f,1.0f,1.0f) * specular;
     vec3 ambientLight = colourTex.xyz * 0.01f;
 

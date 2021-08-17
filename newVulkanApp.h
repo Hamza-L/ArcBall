@@ -13,6 +13,7 @@
 #include "shapes/Plane.h"
 #include "shapes/Cube.h"
 #include "shapes/Icosahedron.h"
+#include "shapes/ObjImporter.h"
 #include "stb_image.h"
 
 //std
@@ -72,6 +73,7 @@ namespace hva {
         void createTextureSampler();
         int createTextureDescriptor(VkImageView texImage);
         int createTextureAndNormDescriptor(VkImageView texImage, VkImageView normImage);
+        void center(Node* object);
 
         int firstTex;
 
