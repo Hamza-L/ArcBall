@@ -12,12 +12,17 @@
 namespace hva {
 
     VulkanModel::VulkanModel(VulkanDevice &device, const std::vector<Vertex> &vertices, const std::vector<uint32_t>& indices, VkQueue transferQueue, VkCommandPool transferCommandPool, int newTexID) : device{device}{
+        modelVertices = vertices;
+        modelIndices = indices;
         createVertexBuffers(vertices, transferQueue, transferCommandPool);
         createindexBuffers(indices, transferQueue, transferCommandPool);
         texID = newTexID;
+        std::cout<<"Vertex Buffer created"<<std::endl;
     }
 
     VulkanModel::VulkanModel(VulkanDevice &device, const std::vector<Vertex> &vertices, const std::vector<uint32_t>& indices, VkQueue transferQueue, VkCommandPool transferCommandPool) : device{device}{
+        modelVertices = vertices;
+        modelIndices = indices;
         createVertexBuffers(vertices, transferQueue, transferCommandPool);
         createindexBuffers(indices, transferQueue, transferCommandPool);
         texID = 0;
@@ -28,6 +33,8 @@ namespace hva {
         vkDestroyBuffer(device.device(), indexBuffer, nullptr);
         vkFreeMemory(device.device(), vertexBufferMemory, nullptr);
         vkFreeMemory(device.device(), indexBufferMemory, nullptr);
+
+        std::cout<<"Vertex Buffer destroyed"<<std::endl;
     }
 
     void VulkanModel::createVertexBuffers(const std::vector<Vertex> &vertices, VkQueue transferQueue, VkCommandPool transferCommandPool) {
@@ -114,5 +121,19 @@ namespace hva {
 
     void VulkanModel::bindIndexed(VkCommandBuffer commandBuffer) { //bind model index buffer
         vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+    }
+
+    void VulkanModel::setColour(glm::vec4 colour, VkQueue transferQueue, VkCommandPool transferCommandPool) {
+        vkDestroyBuffer(device.device(), vertexBuffer, nullptr);
+        vkDestroyBuffer(device.device(), indexBuffer, nullptr);
+        vkFreeMemory(device.device(), vertexBufferMemory, nullptr);
+        vkFreeMemory(device.device(), indexBufferMemory, nullptr);
+
+        for(Vertex & v: modelVertices){
+            v.colour = colour;
+        }
+
+        createVertexBuffers(modelVertices, transferQueue, transferCommandPool);
+        createindexBuffers(modelIndices, transferQueue, transferCommandPool);
     }
 }

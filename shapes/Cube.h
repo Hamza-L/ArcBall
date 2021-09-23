@@ -7,6 +7,7 @@
 
 #include <vector>
 #include "Node.h"
+#include "Plane.h"
 #include <iostream>
 
 class Cube : public Node{

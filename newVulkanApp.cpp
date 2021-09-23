@@ -4,16 +4,16 @@
 
 #include "newVulkanApp.h"
 
-#include "glm/glm.hpp"
-
 #define GLFW_INCLUDE_VULKAN
-#include <GLFW/glfw3.h>
 
 #include <stdexcept>
 #include <array>
 #include <iostream>
 #include <mm_malloc.h>
 #include <cstdlib>
+#include <glm/gtx/vector_angle.hpp>
+
+
 
 const int MAX_OBJECTS = 10;
 const bool TEXTURE = true;
@@ -26,12 +26,15 @@ bool COM = false;
 float scroll = 0;
 
 //mouse events
-bool MPRESS = false;
-bool MFLAG = true;
+static bool MPRESS_R = false;
+static bool MPRESS_L = false;
+static bool MFLAG_R = true;
+static bool MFLAG_L = true;
 
 //arcball parameter;
 float FIT = 1.5f;
-float GAIN = 2;
+static float GAIN = 2.0f;
+
 
 namespace hva{
 
@@ -47,11 +50,18 @@ namespace hva{
         createDescriptorPool();
         createDescriptorSets();
         createCommandBuffers();
+        loadScene();
         loadModels();
+        init_imgui();
     }
 
     NewVulkanApp::~NewVulkanApp() {
         //_mm_free(modelTransferSpace); //for dynamic Buffer Object
+
+
+        ImGui_ImplVulkan_Shutdown();
+        ImGui_ImplGlfw_Shutdown();
+        ImGui::DestroyContext();
 
 
         vkDestroyDescriptorPool(device.device(), descriptorPool, nullptr);
@@ -62,6 +72,10 @@ namespace hva{
             vkDestroyDescriptorPool(device.device(), samplerDescriptorPool, nullptr);
             vkDestroyDescriptorSetLayout(device.device(), samplerSetLayout, nullptr);
         }
+
+        vkDestroyDescriptorPool(device.device(), ImGuiDescriptorPool, nullptr);
+        //vkDestroyDescriptorSetLayout(device.device(), samplerSetLayout, nullptr);
+
         for(size_t i=0; i<vulkanSwapChain->imageCount();i++){
             vkDestroyBuffer(device.device(),vpUniformBuffer[i], nullptr);
             vkFreeMemory(device.device(),vpUniformBufferMemory[i], nullptr);
@@ -86,11 +100,29 @@ namespace hva{
 
     void NewVulkanApp::run(std::string object) {
 
+        glfwSetTime(0);
         while (!vulkanWindow.shouldClose()){
             glfwPollEvents();
+
+            //other event handling
+
+
+            //imgui new frame
+            ImGui_ImplVulkan_NewFrame();
+            ImGui_ImplGlfw_NewFrame();
+            ImGui::NewFrame();
+            //ImGui::ShowDemoWindow(reinterpret_cast<bool *>(true));
+            imGuiParametersSetup();
+            ImGui::Render();
+
+            draw_data = ImGui::GetDrawData();
+
+            //imgui commands
+
             glfwSetKeyCallback(vulkanWindow.getWindow(),key_callback);
             glfwSetMouseButtonCallback(vulkanWindow.getWindow(), mouse_callback);
             glfwSetScrollCallback(vulkanWindow.getWindow(), scroll_callback);
+
             updateModels();
             drawFrame();
         }
@@ -99,60 +131,117 @@ namespace hva{
 
     void NewVulkanApp::loadModels() {
 
-        ObjImporter object = ObjImporter("bunny",glm::vec4(0.4f,0.4f,0.4f,1.0f));
-        object.transform(glm::scale(glm::mat4(1.0f),glm::vec3(0.7f)));
+        //addModel(scene,"","");
+        Cube c;
+        c.transform(glm::mat4(3.0f));
+        addModel(c,"pavingStones.jpg","pavingStonesUV.jpg");
 
-        //std::cout<<object.getVert().size()<<std::endl;
+        items = objectfiles();
+        texturesPath = textureFiles();
 
-        center(&object);
+        //std::cout<<texturesPath.size()<<std::endl;
+
+        for(std::string objName: items){
+            std::cout<<objName<<std::endl;
+            ObjImporter object = ObjImporter(objName,glm::vec4(0.1f,0.1f,0.1f,1.0f));
+            center(&object);
+            addModel(object,object.texName,object.UVTexName);
+            //modelList.push_back(std::move(std::make_unique<VulkanModel>(device, object.getVert(), object.getInd() , device.graphicsQueue(), device.getCommandPool(),createTexture("pavingStones.jpg","pavingStonesUV.jpg"))));
+        }
+
+
+        CheckerPlane p = CheckerPlane(glm::vec4(0.1f,0.1f,0.1f,1.0f),glm::vec4(0.2f,0.2f,0.2f,1.0f),100);
+        p.transform(glm::translate(glm::rotate(glm::mat4(1.0f),glm::radians(-90.0f),glm::vec3(1.0f,0.0f,0.0f)), glm::vec3(0.0f,0.0f,-3.0f)));
+
+        addModel(p,"","");
+        //modelList.push_back(std::move(std::make_unique<VulkanModel>(device, p.getVert(), p.getInd() , device.graphicsQueue(), device.getCommandPool(),createTexture("pavingStones.jpg","pavingStonesUV.jpg"))));
+
+
+        //Scene scene;
+        //scene.addChild(object);
         
 
         //setting up the UboVP matrices
-        uboVP.P = glm::perspective(glm::radians(45.0f), (float) vulkanSwapChain->width()/(float)vulkanSwapChain->height(),0.1f, 100.0f);
-        uboVP.V = glm::lookAt(glm::vec3(0.0f,1.5f,4.0f), glm::vec3(0.0f,0.0f,0.0f), glm::vec3(0.0f,1.0f,0.0f));
-        uboVP.lightPos = glm::vec4(-2.0f, 3.0f, 4.0f, 1.0f);
-        //std::cout<<uboVP.M[0][0]<<","<<uboVP.M[1][1]<<","<<uboVP.M[2][2]<<","<<uboVP.M[3][3]<<std::endl;
-
-        Node test,floor,scene;
-        Cube rect1 = Cube(glm::vec3(1.0f,0.5f,0.0f));
-        Cube cube1;
-        Icosahedron sphere(10,glm::vec3(1.0f,0.5f,0.0f));
-
-        Plane p1;
-        floor.addChild(p1);
-        p1.transform(glm::translate(glm::mat4(1.0f),glm::vec3(1.0f,0.0f,0.0f)));
-        floor.addChild(p1);
-        p1.transform(glm::translate(glm::mat4(1.0f),glm::vec3(-2.0f,0.0f,0.0f)));
-        floor.addChild(p1);
-        scene.addChild(floor);
-        floor.transform(glm::translate(glm::mat4(1.0f),glm::vec3(0.0f,-1.0f,0.0f)));
-        scene.addChild(floor);
-        floor.transform(glm::translate(glm::mat4(1.0f),glm::vec3(0.0f,+2.0f,0.0f)));
-        scene.addChild(floor);
-
-
-        scene.transform(glm::translate(glm::mat4(1.0f),glm::vec3(0.0f,-0.7f,-1.0f)) * glm::scale(glm::mat4(1.0f),glm::vec3(3.5f)) * glm::rotate(glm::mat4(1.0f),glm::radians(-90.0f),glm::vec3(1.0f,0.0f,0.0f)));
-
-        test.addChild(rect1);
-        for (int i=0; i<2; i++){
-            //test = subdivideNode(test);
+        if(scene.getCameras().size()>0){
+            uboVP.P = scene.getCameras()[0].camMatProj;
+            uboVP.V = scene.getCameras()[0].camMatView;
+            uboVP.lightPos = glm::vec4(scene.getLights()[0].lightPos, 1.0f);
+        } else {
+            uboVP.P = glm::perspective(glm::radians(45.0f), (float) vulkanSwapChain->width()/(float)vulkanSwapChain->height(),0.1f, 100.0f);
+            uboVP.V = glm::lookAt(glm::vec3(0.0f,1.5f,4.0f), glm::vec3(0.0f,0.0f,0.0f), glm::vec3(0.0f,1.0f,0.0f));
+            uboVP.lightPos = glm::vec4(-2.0f, 3.0f, 4.0f, 1.0f);
         }
 
-        std::string var;
+        //uboVP.lightPos = glm::vec4(-2.0f, 3.0f, 4.0f, 1.0f);
+        //std::cout<<uboVP.M[0][0]<<","<<uboVP.M[1][1]<<","<<uboVP.M[2][2]<<","<<uboVP.M[3][3]<<std::endl;
+
+        Icosahedron sphere(14,glm::vec3(1.0f,0.5f,0.0f));
+
 
         //glm::mat4 M = glm::translate(glm::rotate(glm::mat4(1.0f),glm::radians(45.0f),glm::vec3(1.0f,1.0f,0.0f)),glm::vec3(1.0f,0.0f,-0.0f));
         //M = glm::scale(M,glm::vec3(0.3f));
         //std::cout<<"the number of vertices is: "<<sphere.getVert().size()<<std::endl;
         //std::cout<<"the number of indices is: "<<sphere.getInd().size()<<std::endl;
-        
-        modelList.push_back(std::move(std::make_unique<VulkanModel>(device, object.getVert(), object.getInd() , device.graphicsQueue(), device.getCommandPool(),createTexture("pavingStones.jpg","pavingStonesUV.jpg"))));
-        modelList.push_back(std::move(std::make_unique<VulkanModel>(device, sphere.getVert(), sphere.getInd() , device.graphicsQueue(), device.getCommandPool(), createTexture("test.jpg","test.jpg"))));
+
+        //VulkanModel thing = VulkanModel(device, sphere.getVert(), sphere.getInd() , device.graphicsQueue(), device.getCommandPool(), createTexture("test.jpg","test.jpg"));
+
+        /*
+        for(Node child: scene.getChildren()){
+            modelList.push_back(std::move(std::make_unique<VulkanModel>(device, child.getVert(), child.getInd() , device.graphicsQueue(), device.getCommandPool(),createTexture("pavingStones.jpg","pavingStonesUV.jpg"))));
+        }
+         */
+        //Node scene;
+        //Plane p = Plane(glm::rotate(glm::mat4(100.0f),glm::radians(-90.0f),glm::vec3(1.0f,0.0f,0.0f)));
+        //CheckerPlane p = CheckerPlane();
+        //p.transform(glm::rotate(glm::mat4(1.0f),glm::radians(-90.0f),glm::vec3(1.0f,0.0f,0.0f)));
+        //scene.addChild(p);
+
+        //modelList.push_back(std::move(std::make_unique<VulkanModel>(device, sphere.getVert(), sphere.getInd() , device.graphicsQueue(), device.getCommandPool(), createTexture("test.jpg","test.jpg"))));
+        //scene.addObject(VulkanModel(device, sphere.getVert(), sphere.getInd() , device.graphicsQueue(), device.getCommandPool(), createTexture("test.jpg","test.jpg")));
+
 
         //cube1.transform(glm::mat4(1.2f));
         //modelList.push_back(std::move(std::make_unique<VulkanModel>(device, cube1.getVert(), cube1.getInd() , device.graphicsQueue(), device.getCommandPool())));
         //modelList[1]->setModel(glm::mat4(1.2f));
         //modelList.push c _back(std::move(std::make_unique<VulkanModel>(device, scene.getVert(), scene.getInd()  , device.graphicsQueue(), device.getCommandPool())));
 
+    }
+
+    void NewVulkanApp::addModel(Node object, std::string texture, std::string normalTex) {
+        if(texture.empty() && normalTex.empty()){
+            modelList.push_back(std::move(std::make_unique<VulkanModel>(device, object.getVert(), object.getInd() , device.graphicsQueue(), device.getCommandPool(),createTexture("pavingStones.jpg","pavingStonesUV.jpg"))));
+            pipelineToUse.push_back(0);
+        } else if (!texture.empty() && normalTex.empty()){
+            modelList.push_back(std::move(std::make_unique<VulkanModel>(device, object.getVert(), object.getInd() , device.graphicsQueue(), device.getCommandPool(),createTexture(texture,"pavingStonesUV.jpg"))));
+            pipelineToUse.push_back(1);
+        } else if (!texture.empty() && !normalTex.empty()){
+            modelList.push_back(std::move(std::make_unique<VulkanModel>(device, object.getVert(), object.getInd() , device.graphicsQueue(), device.getCommandPool(),createTexture(texture,normalTex))));
+            pipelineToUse.push_back(2);
+        }
+    }
+
+    void NewVulkanApp::addModelAt(Node object, int indx,std::string texture, std::string normalTex) {
+        if(texture.empty() && normalTex.empty()){
+            modelList[indx] = std::make_unique<VulkanModel>(device, object.getVert(), object.getInd() , device.graphicsQueue(), device.getCommandPool(),createTexture("pavingStones.jpg","pavingStonesUV.jpg"));
+            pipelineToUse[indx] = 0;
+        } else if (!texture.empty() && normalTex.empty()){
+            modelList[indx] = std::make_unique<VulkanModel>(device, object.getVert(), object.getInd() , device.graphicsQueue(), device.getCommandPool(),createTexture(texture,"pavingStonesUV.jpg"));
+            pipelineToUse[indx] = 1;
+        } else if (!texture.empty() && !normalTex.empty()){
+            modelList[indx] = std::make_unique<VulkanModel>(device, object.getVert(), object.getInd() , device.graphicsQueue(), device.getCommandPool(),createTexture(texture,normalTex));
+            pipelineToUse[indx] = 2;;
+        }
+    }
+
+    void NewVulkanApp::loadScene() {
+        scene = Scene("BoxStacks", WIDTH, HEIGHT);
+        for(int i = 0; i< scene.getLights().size(); i++){
+            light l;
+            l.position = glm::vec4(scene.getLights()[0].lightPos,0.0f);
+            l.colour = glm::vec4(scene.getLights()[0].colour,1.0f);
+            l.intensity = scene.getLights()[0].intensity;
+            lights.push_back(l);
+        }
     }
 
     void NewVulkanApp::center(Node* object){
@@ -239,7 +328,7 @@ namespace hva{
         }
 
 
-        if(vkCreatePipelineLayout(device.device(), &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS){
+        if(vkCreatePipelineLayout(device.device(), &pipelineLayoutInfo, NULL, &pipelineLayout) != VK_SUCCESS){
             throw std::runtime_error("failed to create pipeline layout");
         }
     }
@@ -253,6 +342,16 @@ namespace hva{
         uboVPLayoutBinding.descriptorCount = 1; //number of objects/descriptor we are binding.
         uboVPLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT; //shader stage to bind to.
         uboVPLayoutBinding.pImmutableSamplers = nullptr; //sample data can't be changed. we are not using any texture so we are leaving it null. only the sampler becomes immutable, not the image.
+
+        /*
+        VkDescriptorSetLayoutBinding uboLightsLayoutBinding = {};
+        uboVPLayoutBinding.binding = 1; //binding location in shader
+        uboVPLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER; //type of descriptor (could be: uniform, dynamic uniform, texture ...)
+        uboVPLayoutBinding.descriptorCount = 1; //number of objects/descriptor we are binding.
+        uboVPLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT; //shader stage to bind to.
+        uboVPLayoutBinding.pImmutableSamplers = nullptr; //sample data can't be changed. we are not using any texture so we are leaving it null. only the sampler becomes immutable, not the image.
+
+        */
 
         /*
         VkDescriptorSetLayoutBinding modelLayoutBinding = {}; //for the dynamic model uniform buffer.
@@ -307,25 +406,33 @@ namespace hva{
 
     void NewVulkanApp::createPipeline(int flag) {
         pipelineConfig = VulkanPipeline::defaultPipelineConfigInfo(vulkanSwapChain->width(), vulkanSwapChain->height());
-        if (flag==1) {
-            pipelineConfig.rasterizationInfo.polygonMode = VK_POLYGON_MODE_LINE;
-            pipelineConfig.rasterizationInfo.cullMode = VK_CULL_MODE_NONE;
-        }
-        if (flag==2) {
-            pipelineConfig.inputAssemblyInfo.topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
-            pipelineConfig.rasterizationInfo.polygonMode = VK_POLYGON_MODE_LINE;
-        }
         pipelineConfig.renderPass = vulkanSwapChain->getRenderPass();
         pipelineConfig.pipelineLayout = pipelineLayout;
-        if(TEXTURE){
+
+        if (flag==0){
             vulkanPipelines.push_back(std::move(std::make_unique<VulkanPipeline>(device,
-                                                                                 "/Users/hamzalah/Documents/gitProjects/ArcBall/shaders/textvert.spv",
-                                                                                 "/Users/hamzalah/Documents/gitProjects/ArcBall/shaders/textfrag.spv",
+                                                                                 "shaders/notextvert.spv",
+                                                                                 "shaders/notextfrag.spv",
                                                                                  pipelineConfig)));
-        } else {
+        }
+        if (flag==1) {
             vulkanPipelines.push_back(std::move(std::make_unique<VulkanPipeline>(device,
-                                                                                 "shaders/vert.spv",
-                                                                                 "shaders/frag.spv",
+                                                                                 "shaders/textvert.spv",
+                                                                                 "shaders/textfrag.spv",
+                                                                                 pipelineConfig)));
+        }
+        if (flag==2) {
+            vulkanPipelines.push_back(std::move(std::make_unique<VulkanPipeline>(device,
+                                                                                 "shaders/textvert.spv",
+                                                                                 "shaders/textfrag.spv",
+                                                                                 pipelineConfig)));
+        }
+        if( flag==3){
+            pipelineConfig.rasterizationInfo.polygonMode = VK_POLYGON_MODE_LINE;
+            pipelineConfig.rasterizationInfo.cullMode = VK_CULL_MODE_NONE;
+            vulkanPipelines.push_back(std::move(std::make_unique<VulkanPipeline>(device,
+                                                                                 "shaders/notextvert.spv",
+                                                                                 "shaders/notextfrag.spv",
                                                                                  pipelineConfig)));
         }
     }
@@ -395,6 +502,31 @@ namespace hva{
                 throw std::runtime_error("failed to create a sampler descriptor pool");
             }
         }
+
+        //ImGui Descriptor Pool creation
+        VkDescriptorPoolSize imGuiPoolSizes[] =
+                {
+                { VK_DESCRIPTOR_TYPE_SAMPLER, 1000 },
+                { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000 },
+                { VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000 },
+                { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000 },
+                { VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000 },
+                { VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000 },
+                { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000 },
+                { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000 },
+                { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000 },
+                { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000 },
+                { VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000 }
+                };
+        VkDescriptorPoolCreateInfo ImGuiPoolInfo = {};
+        ImGuiPoolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+        ImGuiPoolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+        ImGuiPoolInfo.maxSets = 1000 * IM_ARRAYSIZE(imGuiPoolSizes);
+        ImGuiPoolInfo.poolSizeCount = (uint32_t)IM_ARRAYSIZE(imGuiPoolSizes);
+        ImGuiPoolInfo.pPoolSizes = imGuiPoolSizes;
+
+        VkResult err = vkCreateDescriptorPool(device.device(), &ImGuiPoolInfo, nullptr, &ImGuiDescriptorPool);
+        check_vk_result(err);
     }
 
     void NewVulkanApp::createDescriptorSets() {
@@ -493,34 +625,44 @@ namespace hva{
                              VK_SUBPASS_CONTENTS_INLINE); //starts by clearing the image with the clearValue
 
         //vkCmdSetViewport(commandBuffers[i],0,1,&pipelineConfig.viewport); //flip the viewport along the y axis.
-        for (int p=0; p<1; p++) {
-            for (int m = 0; m < 1; m++) {
-                //std::cout << p << std::endl;
-                vulkanPipelines[m]->bind(commandBuffers[imageIndex]);
-                modelList[m]->bind(commandBuffers[imageIndex]);
-                modelList[m]->bindIndexed(commandBuffers[imageIndex]);
 
-                //uint32_t dynamicOffset = static_cast<uint32_t>(modelUniformAlignment) * m;
-                vkCmdPushConstants(commandBuffers[imageIndex],
-                                   pipelineLayout,
-                                   VK_SHADER_STAGE_VERTEX_BIT,
-                                   0,
-                                   sizeof(PushObject),
-                                   modelList[m]->getModel());
+        for (int o = 0; o < objectToRender.size(); o++) {
 
-
-                std::array<VkDescriptorSet, 2> descriptorSetGroup = {descriptorSets[imageIndex],
-                                                                     samplerDescriptorSets[modelList[m]->getTexID()]};
-
-                vkCmdBindDescriptorSets(commandBuffers[imageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                        pipelineLayout, 0, 2, descriptorSetGroup.data(),
-                                        0,
-                                        nullptr); //we have no dynamic offset yet (only using uniform buffer);
-
-                modelList[m]->drawIndexed(commandBuffers[imageIndex]);
-
+            //std::cout << "size of objectToRender List: " << objectToRender.size() << " with object "<<objectToRender[o] << std::endl;
+            if(currPipeline == 1){
+                vulkanPipelines[3]->bind(commandBuffers[imageIndex]);
+            }else{
+                vulkanPipelines[pipelineToUse[objectToRender[o]]]->bind(commandBuffers[imageIndex]);
             }
+            modelList[objectToRender[o]]->bind(commandBuffers[imageIndex]);
+            modelList[objectToRender[o]]->bindIndexed(commandBuffers[imageIndex]);
+
+            //uint32_t dynamicOffset = static_cast<uint32_t>(modelUniformAlignment) * m;
+            vkCmdPushConstants(commandBuffers[imageIndex],
+                               pipelineLayout,
+                               VK_SHADER_STAGE_VERTEX_BIT,
+                               0,
+                               sizeof(PushObject),
+                               modelList[objectToRender[o]]->getModel());
+
+
+            std::array<VkDescriptorSet, 2> descriptorSetGroup = {descriptorSets[imageIndex],
+                                                                 samplerDescriptorSets[modelList[objectToRender[o]]->getTexID()]};
+
+            vkCmdBindDescriptorSets(commandBuffers[imageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                    pipelineLayout, 0, 2, descriptorSetGroup.data(),
+                                    0,
+                                    nullptr); //we have no dynamic offset yet (only using uniform buffer);
+
+                                    modelList[objectToRender[o]]->drawIndexed(commandBuffers[imageIndex]);
+
         }
+
+        vulkanPipelines[0]->bind(commandBuffers[imageIndex]);
+        //scene.bind(commandBuffers[imageIndex],pipelineLayout,descriptorSets[imageIndex],samplerDescriptorSets);
+
+        //std::cout<<draw_data->Valid<<std::endl;
+        ImGui_ImplVulkan_RenderDrawData(draw_data, commandBuffers[imageIndex]);
 
         vkCmdEndRenderPass(commandBuffers[imageIndex]);
 
@@ -537,6 +679,7 @@ namespace hva{
         vkMapMemory(device.device(), vpUniformBufferMemory[imageIndex], 0, sizeof(UboVP), 0, &data);
         memcpy(data, &uboVP, sizeof(UboVP));
         vkUnmapMemory(device.device(), vpUniformBufferMemory[imageIndex]);
+
 
         /** kept for futur reference. Dynamic Buffer memcpy
         //copy model data
@@ -572,8 +715,8 @@ namespace hva{
             throw std::runtime_error( "failed to acquire swap chain image");
         }
 
-        recordCommand(imageIndex);
         updateUniformBuffers(imageIndex);
+        recordCommand(imageIndex);
         result = vulkanSwapChain->submitCommandBuffers(&commandBuffers[imageIndex], &imageIndex);
 
         if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || vulkanWindow.wasWindowResized()){
@@ -630,50 +773,108 @@ namespace hva{
 
     void NewVulkanApp::updateModels() {
         //float sec = glfwGetTime();
-        double xPos,yPos;
+        double dot;
+        double angle;
+        glm::vec3 Axis;
         glm::mat4 R = glm::mat4(1.0f);
-       // R = glm::identity();
+        glm::mat4 VInv = glm::inverse(uboVP.V);
+        glm::mat4 V = uboVP.V;
+        glm::mat4 result;
 
-        if(MPRESS && MFLAG){
-            MFLAG = false;
-            glfwGetCursorPos(vulkanWindow.getWindow(),&xPos,&yPos);
-            mouseInit = getVectorFromMouse(xPos,yPos);
+
+        if(MPRESS_R && MFLAG_R){
+            MFLAG_R = false;
+            //view = glm::mat4(uboVP.V);
+            double xPosInit,yPosInit;
+            glfwGetCursorPos(vulkanWindow.getWindow(),&xPosInit,&yPosInit);
+            glm::vec4 temp1 = VInv * glm::vec4(getVectorFromMouse(xPosInit,yPosInit),0.0f);
+            mouseInit = normalize(glm::vec3(temp1.x,temp1.y,temp1.z));
         }
 
-        if(MPRESS){
-            glm::mat4 Mmodel = modelList[0]->getModel()->M;
-            glm::mat4 MmodelInv = modelList[0]->getModel()->MinvT;
-            glfwGetCursorPos(vulkanWindow.getWindow(),&xPos,&yPos);
+        if(MPRESS_R){
+            double xPosCurr,yPosCurr;
+            //glm::mat4 Mmodel = modelList[objectToRender[0]]->getModel()->M;
+            glfwGetCursorPos(vulkanWindow.getWindow(),&xPosCurr,&yPosCurr);
 
-            mouseCurr = getVectorFromMouse(xPos,yPos);
+            glm::vec4 temp = VInv * glm::vec4(getVectorFromMouse(xPosCurr,yPosCurr),0.0f);
+            mouseCurr = glm::normalize(glm::vec3(temp.x,temp.y,temp.z));
+            //std::cout<<"mouseCurr: "<<mouseCurr.x<<" "<<mouseCurr.y<<" "<<mouseCurr.z<<std::endl;
 
-            if(glm::length(glm::vec3(mouseCurr - mouseInit)) < 1E-10){
-                //do nothing
+            //std::cout<<glm::length(glm::vec3(mouseCurr - mouseInit))<<std::endl;
+
+            if(glm::length(glm::vec3(mouseCurr - mouseInit)) < 1E-05){
+                //std::cout<<"do nothing"<<std::endl;
             } else {
-                glm::vec3 Axis = glm::cross(mouseInit, mouseCurr);
 
-                Axis = glm::normalize(Axis);
-                double dot = glm::dot(mouseInit,mouseCurr);
+                Axis = glm::cross(mouseInit, mouseCurr);
+
+                dot = glm::dot(mouseInit, mouseCurr);
                 if(dot>1) {dot = 1;}
-                float angle = (float)glm::acos(dot) * GAIN;
+                angle = glm::acos(dot);
 
-                R = glm::rotate(R, angle, Axis);
-                modelList[0]->setModel(R * Mmodel);
-                mouseInit = glm::vec3(mouseCurr);
+                //std::cout<<"mouse curr: ["<<mouseCurr.x<<","<<mouseCurr.y<<","<<mouseCurr.z<<"], "<<"mouse init: ["<<mouseInit.x<<","<<mouseInit.y<<","<<mouseInit.z<<"], "<<angle<<std::endl;
+
+                //modelList[objectToRender[0]]->setModel(R * Mmodel);
+                //modelList[modelList.size()-1]->setModel(R * Mmodel);
+                //glm::mat4 tempV = glm::translate(glm::mat4(1.0f),glm::vec3(glm::inverse(uboVP.V)[3][0],glm::inverse(uboVP.V)[3][1],glm::inverse(uboVP.V)[3][2]));
+
+                //uboVP.V = uboVP.V * glm::inverse(R);
+                uboVP.V = uboVP.V * glm::rotate(glm::mat4(1.0f), (float)angle, Axis);
             }
         }
 
+        if(MPRESS_L && MFLAG_L){
+            MFLAG_L = false;
+            //view = glm::mat4(uboVP.V);
+            double xPosInit,yPosInit;
+            glfwGetCursorPos(vulkanWindow.getWindow(),&xPosInit,&yPosInit);
+            glm::vec4 temp1 = VInv * glm::vec4(getVectorFromMouse(xPosInit,yPosInit),0.0f);
+            mouseInit = normalize(glm::vec3(temp1.x,temp1.y,temp1.z));
+        }
 
+        if(MPRESS_L){
+            double xPosCurr,yPosCurr;
+            glm::mat4 Mmodel = modelList[objectToRender[0]]->getModel()->M;
+            glfwGetCursorPos(vulkanWindow.getWindow(),&xPosCurr,&yPosCurr);
+
+            glm::vec4 temp = VInv * glm::vec4(getVectorFromMouse(xPosCurr,yPosCurr),0.0f);
+            mouseCurr = glm::normalize(glm::vec3(temp.x,temp.y,temp.z));
+            //std::cout<<"mouseCurr: "<<mouseCurr.x<<" "<<mouseCurr.y<<" "<<mouseCurr.z<<std::endl;
+
+            //std::cout<<glm::length(glm::vec3(mouseCurr - mouseInit))<<std::endl;
+
+            if(glm::length(glm::vec3(mouseCurr - mouseInit)) < 1E-05){
+                //std::cout<<"do nothing"<<std::endl;
+            } else {
+
+                Axis = glm::cross(mouseInit, mouseCurr);
+
+                dot = glm::dot(mouseInit, mouseCurr);
+                if(dot>1) {dot = 1;}
+                angle = glm::acos(dot) * GAIN;
+
+                R = glm::rotate(glm::mat4(1.0f), (float)angle, Axis);
+                //std::cout<<"mouse curr: ["<<mouseCurr.x<<","<<mouseCurr.y<<","<<mouseCurr.z<<"], "<<"mouse init: ["<<mouseInit.x<<","<<mouseInit.y<<","<<mouseInit.z<<"], "<<angle<<std::endl;
+
+                modelList[objectToRender[0]]->setModel(R * Mmodel);
+                //modelList[modelList.size()-1]->setModel(R * Mmodel);
+                //glm::mat4 tempV = glm::translate(glm::mat4(1.0f),glm::vec3(glm::inverse(uboVP.V)[3][0],glm::inverse(uboVP.V)[3][1],glm::inverse(uboVP.V)[3][2]));
+
+                //uboVP.V = uboVP.V * glm::inverse(R);
+                //uboVP.V = uboVP.V * glm::rotate(glm::mat4(1.0f), (float)angle, Axis);
+                mouseInit = mouseCurr;
+            }
+        }
 
         //std::cout<<"["<<xPos<<","<<yPos<<"]"<<std::endl;
 
-        xPos/=vulkanSwapChain->getSwapChainExtent().width;
-        yPos/=vulkanSwapChain->getSwapChainExtent().height;
-        xPos = (xPos*2)-1;
-        yPos = -(yPos*2)+1;
+        ///xPos/=vulkanSwapChain->getSwapChainExtent().width;
+        //yPos/=vulkanSwapChain->getSwapChainExtent().height;
+        //xPos = (xPos*2)-1;
+        //yPos = -(yPos*2)+1;
 
-        uboVP.lightPos = glm::vec4(3.0f,3.0f,4.0f,1.0f);
-        uboVP.P = glm::perspective(glm::radians(45.0f - scroll), (float) vulkanSwapChain->width()/(float)vulkanSwapChain->height(),0.1f, 100.0f);
+        //uboVP.lightPos = glm::vec4(3.0f,3.0f,4.0f,1.0f);
+        uboVP.P = glm::perspective(glm::radians(scene.getCameras()[currCamera].camFovy - scroll), (float) vulkanSwapChain->width()/(float)vulkanSwapChain->height(),0.1f, 100.0f);
 
         float increment =1.0f;
         if (COM){
@@ -683,11 +884,11 @@ namespace hva{
         if (SHIFT){
             if (RIGHT) {
                 M1 = glm::rotate(glm::mat4(1.0f), glm::radians(increment), glm::vec3(0.0f, 0.0f, 1.0f)) * M1;
-                uboVP.lightPos = glm::vec4((float)xPos*5.0f,(float)yPos*1.0f,-2.0f,1.0f);
+                //uboVP.lightPos = glm::vec4((float)xPos*5.0f,(float)yPos*1.0f,-2.0f,1.0f);
             }
             if (LEFT) {
                 M1 = glm::rotate(glm::mat4(1.0f), glm::radians(-increment), glm::vec3(0.0f, 0.0f, 1.0f)) * M1;
-                uboVP.lightPos = glm::vec4((float)xPos*5.0f,(float)yPos*1.0f,-2.0f,1.0f);
+                //uboVP.lightPos = glm::vec4((float)xPos*5.0f,(float)yPos*1.0f,-2.0f,1.0f);
             }
         } else {
             if (UP_PRESS) {
@@ -767,12 +968,14 @@ namespace hva{
             glfwWaitEvents();
         }
         vkDeviceWaitIdle(device.device());
+        vulkanSwapChain.reset();
         vulkanSwapChain = std::make_unique<VulkanSwapChain>(device,extent);
         uboVP.P = glm::perspective(glm::radians(65.0f), (float) vulkanSwapChain->width()/(float)vulkanSwapChain->height(),0.1f, 100.0f);
         vulkanPipelines.clear();
         createPipeline(0);
         createPipeline(1);
-        createPipeline(0);
+        createPipeline(2);
+        createPipeline(3);
     }
 
     stbi_uc *NewVulkanApp::loadTextureFile(std::string filename, int * width, int * height, VkDeviceSize* imageSize) {
@@ -780,7 +983,7 @@ namespace hva{
         int channels;
 
         //load pixel data for image
-        std::string fileLoc = "/Users/hamzalah/Documents/gitProjects/ArcBall/textures/" + filename;
+        std::string fileLoc = "textures/" + filename;
         stbi_uc * image = stbi_load(fileLoc.c_str(), width, height, &channels, STBI_rgb_alpha);
 
         if(image == NULL){
@@ -1036,20 +1239,231 @@ namespace hva{
     }
 
     void NewVulkanApp::mouse_callback(GLFWwindow *window, int button, int action, int mods) {
-        if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS){
-            MPRESS = true;
+        if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS && !ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow)){
+            MPRESS_L = true;
         } else {
-            MPRESS = false;
+            MPRESS_L = false;
         }
 
         if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE){
-            MFLAG = true;
+            MFLAG_L = true;
+        }
+
+        if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS && !ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow)){
+            MPRESS_R = true;
+        } else {
+            MPRESS_R = false;
+        }
+
+        if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_RELEASE){
+            MFLAG_R = true;
         }
     }
 
     void NewVulkanApp::scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
         //std::cout<<yoffset<<std::endl;
-        scroll += yoffset;
+        scroll += 2.0f*yoffset;
+    }
+
+
+    void NewVulkanApp::init_imgui() {
+
+
+        //this initializes the core structures of imgui
+        IMGUI_CHECKVERSION();
+        ImGui::CreateContext();
+        ImGuiIO& io = ImGui::GetIO(); (void)io;
+
+        // Setup Dear ImGui style
+        ImGui::StyleColorsDark();
+
+        // Setup Platform/Renderer backends
+        ImGui_ImplGlfw_InitForVulkan(vulkanWindow.getWindow(), true);
+        ImGui_ImplVulkan_InitInfo init_info = {};
+        init_info.Instance = device.getInstance();
+        init_info.PhysicalDevice = device.physDevice();
+        init_info.Device = device.device();
+        init_info.QueueFamily = device.findPhysicalQueueFamilies().graphicsFamily;
+        init_info.Queue = device.graphicsQueue();
+        init_info.PipelineCache = VK_NULL_HANDLE;
+        init_info.DescriptorPool = ImGuiDescriptorPool;
+        init_info.Allocator = nullptr;
+        init_info.MinImageCount = 2;
+        init_info.ImageCount = vulkanSwapChain->MAX_FRAMES_IN_FLIGHT;
+        init_info.CheckVkResultFn = check_vk_result;
+        init_info.Subpass = 0;
+        ImGui_ImplVulkan_Init(&init_info, vulkanSwapChain->getRenderPass());
+
+        //execute a gpu command to upload imgui font textures
+        // Upload Fonts
+        {
+
+            // Use any command queue
+            VkCommandBuffer command_buffer = commandBuffers[0];
+
+            err = vkResetCommandPool(device.device(), device.getCommandPool(), 0);
+            check_vk_result(err);
+            VkCommandBufferBeginInfo begin_info = {};
+            begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+            begin_info.flags |= VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+            err = vkBeginCommandBuffer(command_buffer, &begin_info);
+            check_vk_result(err);
+
+            ImGui_ImplVulkan_CreateFontsTexture(command_buffer);
+
+            err = vkEndCommandBuffer(command_buffer);
+            check_vk_result(err);
+
+            //err = vkDeviceWaitIdle(device.device());
+            //check_vk_result(err);
+
+            VkSubmitInfo end_info = {};
+            end_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+            end_info.commandBufferCount = 1;
+            end_info.pCommandBuffers = &command_buffer;
+
+            err = vkQueueSubmit(device.graphicsQueue(), 1, &end_info, VK_NULL_HANDLE);
+            check_vk_result(err);
+
+            err = vkDeviceWaitIdle(device.device());
+            check_vk_result(err);
+
+            ImGui_ImplVulkan_DestroyFontUploadObjects();
+        }
+    }
+
+
+    void NewVulkanApp::imGuiParametersSetup() {
+
+        double time = glfwGetTime();
+        static bool wireframeEnabled;
+        static bool animLightEnabled;
+        static bool floorEnabled = true;
+        static glm::vec3 colour = modelList[objectToRender[0]]->getColour();
+        float temp_x = 0;
+        float temp_z = 0;
+
+        //std::cout<<objectToRender[0]<<" is: "<<modelList[objectToRender[0]]->getColour().x<<std::endl;
+
+        ImGui::Begin("My very own Vulkan Render Engine!");                          // Create a window called "Hello, world!" and append into it.
+
+        ImGui::SetWindowSize(ImVec2(350.0f,300.0f),0);
+
+        ImGui::Text("Specular Highlight.");               // Display some text (you can use a format strings too)
+
+        ImGui::SliderFloat("float", &modelList[objectToRender[0]]->getModel()->specular, 8.0f, 128.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
+
+        if(ImGui::SliderFloat3("float", &uboVP.lightPos.x, -10.0f, 10.0f)){
+            animLightEnabled = false;
+        }
+
+        ImGui::Text("Colour.");
+        if(ImGui::ColorEdit3("colour", (float*)&colour)){
+            modelList[objectToRender[0]]->setColour(glm::vec4(colour[0],colour[1],colour[2],1.0f),device.graphicsQueue(),device.getCommandPool());
+        } // Edit 3 floats representing a color
+
+        //const char* items[] = objectfiles().data();
+
+        static const char* current_item = NULL;
+
+
+        ImGui::Text("import object");
+        if (ImGui::BeginCombo("##combo1", current_item)) // The second parameter is the label previewed before opening the combo.
+            {
+            for (int n = 0; n < items.size(); n++)
+            {
+                bool is_selected = (current_item == items[n].c_str()); // You can store your selection however you want, outside or inside your objects
+                if (ImGui::Selectable(items[n].c_str(), is_selected)){
+                    current_item = items[n].c_str();
+                    objectToRender[0] = n + 1;
+                    colour = modelList[objectToRender[0]]->getColour();
+                    modelList.back()->setModel(modelList[objectToRender[0]]->getModel()->M);
+                }
+                if (is_selected){
+                    ImGui::SetItemDefaultFocus();   // You may set the initial focus when opening the combo (scrolling + for keyboard navigation support)
+                }
+            }
+            ImGui::EndCombo();
+            }
+
+        static const char* current_texture = NULL;
+
+        ImGui::Text("import Texture");
+        if (ImGui::BeginCombo("##combo2", current_texture)) // The second parameter is the label previewed before opening the combo.
+        {
+            for (int n = 0; n < texturesPath.size(); n++)
+            {
+                bool is_selected = (current_texture == texturesPath[n].c_str()); // You can store your selection however you want, outside or inside your objects
+                if (ImGui::Selectable(texturesPath[n].c_str(), is_selected)){
+                    current_texture = texturesPath[n].c_str();
+                    Cube c;
+                    c.transform(glm::mat4(3.0f));
+                    addModelAt(c,0,texturesPath[n] + ".jpg",texturesPath[n] + "UV.jpg");
+                }
+                if (is_selected){
+                    ImGui::SetItemDefaultFocus();   // You may set the initial focus when opening the combo (scrolling + for keyboard navigation support)
+                }
+            }
+            ImGui::EndCombo();
+        }
+
+        ImGui::Checkbox("Wireframe mode", &wireframeEnabled);
+
+        if(wireframeEnabled){
+            currPipeline = 1;
+        } else {
+            currPipeline = 0;
+        }
+
+        ImGui::Checkbox("Animate Light", &animLightEnabled);
+
+        if(animLightEnabled){
+            uboVP.lightPos.x = temp_x + 10.0f * glm::cos(time);
+            //std::cout<<"light.x"<<uboVP.lightPos.x<<std::endl;
+            uboVP.lightPos.z = temp_z + 10.0f * glm::sin(time);
+            //std::cout<<"light.x"<<uboVP.lightPos.x<<std::endl;
+        }
+
+        ImGui::Checkbox("Add floor", &floorEnabled);
+
+        if(floorEnabled && objectToRender.size()==1){
+            objectToRender.push_back(modelList.size()-1);
+        } else if(floorEnabled){
+            //do nothing
+        }
+        else{
+            objectToRender.resize(1);
+        }
+
+
+        ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+        ImGui::End();
+    }
+
+    std::vector<std::string> NewVulkanApp::objectfiles() {
+        std::vector<std::string> listObjects;
+
+        std::string path = "objects";
+        for (const auto & entry : std::filesystem::directory_iterator(path)){
+            if (entry.path().filename().extension() == ".obj" && entry.path().filename().c_str()[0] != '.'){
+                listObjects.emplace_back(entry.path().stem().generic_string().c_str());
+            }
+        }
+
+        return listObjects;
+    }
+
+    std::vector<std::string> NewVulkanApp::textureFiles() {
+        std::vector<std::string> listObjects;
+
+        std::string path = "textures";
+        for (const auto & entry : std::filesystem::directory_iterator(path)){
+            if (entry.path().filename().extension() == ".jpg" && entry.path().filename().c_str()[0] != '.' && entry.path().filename().generic_string().find("UV") == -1){
+                listObjects.emplace_back(entry.path().stem().generic_string().c_str());
+            }
+        }
+
+        return listObjects;
     }
 
 }

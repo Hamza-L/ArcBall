@@ -22,8 +22,8 @@ namespace hva{
         VkPipelineColorBlendAttachmentState colorBlendAttachment;
         VkPipelineColorBlendStateCreateInfo colorBlendInfo;
         VkPipelineDepthStencilStateCreateInfo depthStencilInfo;
-        VkPipelineLayout pipelineLayout = nullptr;
-        VkRenderPass renderPass = nullptr;
+        VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
+        VkRenderPass renderPass = VK_NULL_HANDLE;
         uint32_t subpass = 0;
     };
     class VulkanPipeline{
@@ -34,6 +34,7 @@ namespace hva{
         VulkanPipeline& operator=(const VulkanPipeline&) = delete;
 
         void bind(VkCommandBuffer commandBuffer);
+        VkPipeline getPipeline(){ return graphicsPipeline; }
 
         static PipelineConfigInfo defaultPipelineConfigInfo(uint32_t width, uint32_t height);
 

@@ -101,7 +101,7 @@ namespace hva {
             createInfo.enabledLayerCount = 0;
             createInfo.pNext = nullptr;
         }
-        
+
         if (vkCreateInstance(&createInfo, nullptr, &instance) != VK_SUCCESS) {
             throw std::runtime_error("failed to create instance!");
         }
@@ -135,7 +135,7 @@ namespace hva {
     }
 
     void VulkanDevice::createLogicalDevice() {
-        
+
         //get the queue family indices for the selected device
         QueueFamilyIndices indices = findQueueFamilies(physicalDevice);
 
@@ -179,7 +179,7 @@ namespace hva {
         }
         */
 
-        if (vkCreateDevice(physicalDevice, &createInfo, nullptr, &device_) != VK_SUCCESS) {
+        if (vkCreateDevice(physicalDevice, &createInfo, NULL, &device_) != VK_SUCCESS) {
             throw std::runtime_error("failed to create logical device!");
         }
 
@@ -194,7 +194,7 @@ namespace hva {
         poolInfo.queueFamilyIndex = queueFamilyIndices.graphicsFamily; //what queue family will the commandPool be used on.
         poolInfo.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT | VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
 
-        if (vkCreateCommandPool(device_, &poolInfo, nullptr, &commandPool) != VK_SUCCESS) {
+        if (vkCreateCommandPool(device_, &poolInfo, NULL, &commandPool) != VK_SUCCESS) {
             throw std::runtime_error("failed to create command pool!");
         }
     }
@@ -230,21 +230,21 @@ namespace hva {
                                  VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
                                  VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
         createInfo.pfnUserCallback = debugCallback;
-        createInfo.pUserData = nullptr;  // Optional
+        createInfo.pUserData = NULL;  // Optional
     }
 
     void VulkanDevice::setupDebugMessenger() {
         if (!enableValidationLayers) return;
         VkDebugUtilsMessengerCreateInfoEXT createInfo;
         populateDebugMessengerCreateInfo(createInfo);
-        if (CreateDebugUtilsMessengerEXT(instance, &createInfo, nullptr, &debugMessenger) != VK_SUCCESS) {
+        if (CreateDebugUtilsMessengerEXT(instance, &createInfo, NULL, &debugMessenger) != VK_SUCCESS) {
             throw std::runtime_error("failed to set up debug messenger!");
         }
     }
 
     bool VulkanDevice::checkValidationLayerSupport() {
         uint32_t layerCount;
-        vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
+        vkEnumerateInstanceLayerProperties(&layerCount, NULL);
 
         std::vector<VkLayerProperties> availableLayers(layerCount);
         vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
@@ -283,9 +283,9 @@ namespace hva {
 
     void VulkanDevice::hasGflwRequiredInstanceExtensions() {
         uint32_t extensionCount = 0;
-        vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
+        vkEnumerateInstanceExtensionProperties(NULL, &extensionCount, NULL);
         std::vector<VkExtensionProperties> extensions(extensionCount);
-        vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, extensions.data());
+        vkEnumerateInstanceExtensionProperties(NULL, &extensionCount, extensions.data());
 
         //std::cout << "available extensions:" << std::endl;
         std::unordered_set<std::string> available;

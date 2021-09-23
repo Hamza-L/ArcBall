@@ -15,6 +15,7 @@ namespace hva {
 
     VulkanSwapChain::VulkanSwapChain(VulkanDevice &deviceRef, VkExtent2D extent)
             : device{deviceRef}, windowExtent{extent} {
+        std::cout<<"Swapchain created"<<std::endl;
         createSwapChain();
         createImageViews();
         createRenderPass();
@@ -24,6 +25,7 @@ namespace hva {
     }
 
     VulkanSwapChain::~VulkanSwapChain() {
+        std::cout<<"Swapchain destroyed"<<std::endl;
         for (auto imageView : swapChainImageViews) {
             vkDestroyImageView(device.device(), imageView, nullptr);
         }

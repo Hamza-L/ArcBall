@@ -7,8 +7,6 @@
 
 #include "vulkanDevice.h"
 
-// vulkan headers
-#include <vulkan/vulkan.h>
 
 // std lib headers
 #include <string>
@@ -46,9 +44,6 @@ namespace hva {
         static VkImageView createImageView(VkDevice device, VkImage image, VkFormat format, VkImageAspectFlags aspectFlags);
 
     private:
-        struct imageconfig{
-
-        };
         void createSwapChain();
         void createImageViews();
         void createDepthResources();

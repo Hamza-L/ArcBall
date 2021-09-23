@@ -5,11 +5,12 @@
 #ifndef VULKANTESTING_VULKANWINDOW_H
 #define VULKANTESTING_VULKANWINDOW_H
 
-#define GLM_FORCE_DEPTH_ZERO_TO_ONE
-
+#define GLFW_INCLUDE_NONE
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 #include <string>
+
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
 
 namespace hva {
 
@@ -28,6 +29,8 @@ namespace hva {
         void rename(std::string name){
             windowName = name;
             glfwDestroyWindow(window);
+            glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+            glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
             window = glfwCreateWindow(width, height, name.c_str(), nullptr, nullptr);
         };
 
@@ -47,6 +50,8 @@ namespace hva {
 
         std::string windowName;
         GLFWwindow *window;
+
+        //VkSurfaceKHR surface;
 
     };
 }

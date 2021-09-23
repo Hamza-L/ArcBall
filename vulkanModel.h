@@ -25,6 +25,7 @@ namespace hva {
     struct PushObject{
         glm::mat4 M = glm::mat4(1.0f);
         glm::mat4 MinvT = glm::mat4(1.0f);
+        glm::float32_t specular = 16.0f;
     };
 
     class VulkanModel{
@@ -33,8 +34,8 @@ namespace hva {
         VulkanModel(VulkanDevice &device, const std::vector<Vertex> &vertices, const std::vector<uint32_t>& indices, VkQueue transferQueue, VkCommandPool transferCommandPool);
         ~VulkanModel();
 
-        VulkanModel(const VulkanModel&) = delete;
-        VulkanModel &operator=(const VulkanModel&) = delete;
+        //VulkanModel(const VulkanModel&) = delete;
+        //VulkanModel &operator=(const VulkanModel&) = delete;
 
         void bind(VkCommandBuffer commandBuffer);
         void draw(VkCommandBuffer commandBuffer);
@@ -50,6 +51,8 @@ namespace hva {
 
         int getTexID(){return texID;};
         void setTexID(int newTexID){texID = newTexID;};
+        void setColour(glm::vec4 colour, VkQueue transferQueue, VkCommandPool transferCommandPool);
+        glm::vec3 getColour(){return modelVertices[0].colour;};
 
     private:
         void createVertexBuffers(const std::vector<Vertex> &vertices, VkQueue transferQueue, VkCommandPool transferCommandPool);
@@ -68,6 +71,9 @@ namespace hva {
 
         VkBuffer stagingBuffer;
         VkDeviceMemory stagingBufferMemory;
+
+        std::vector<Vertex> modelVertices;
+        std::vector<uint32_t> modelIndices;
 
         PushObject pobj;
     };

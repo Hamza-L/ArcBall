@@ -11,11 +11,14 @@ layout(set = 0, binding = 0) uniform UboVP { //fixed ubo
     mat4 V;
     mat4 P;
     vec4 lightPos;
+    vec4 colour;
+    float spec;
 }uboVP; //uniform across al vertex
 
 layout(push_constant) uniform pushObj{
     mat4 M;
     mat4 MinvT;
+    float specular;
 }pObj;
 //not in use. left for reference.
 /*
@@ -31,6 +34,8 @@ layout(location = 2) out vec3 positionForFP;
 layout(location = 3) out vec3 lightPos;
 layout(location = 4) out vec2 fragtex;
 layout(location = 5) out mat4 fragM;
+layout(location = 9) out vec4 guiColour;
+layout(location = 10) out float specHL;
 
 void main() {
     gl_Position = uboVP.P * uboVP.V * pObj.M * vec4(position, 1.0);
@@ -55,4 +60,7 @@ void main() {
     vec4(0.0f,0.0f,0.0f,1.0f)
     );
     fragM = uboVP.V * pObj.MinvT * tempM;
+
+    guiColour = uboVP.colour;
+    specHL = pObj.specular;
 }

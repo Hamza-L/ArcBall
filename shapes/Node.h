@@ -17,6 +17,8 @@ protected:
     glm::mat4 Model = glm::mat4(1.0f);
     glm::mat4 MinvT = glm::mat4(1.0f);
 public:
+    std::string name{};
+
     void addChild(Node& child){
         children.push_back(child);
     }

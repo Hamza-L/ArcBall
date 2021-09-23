@@ -7,6 +7,8 @@ layout(location = 2) in vec3 positionForFP;
 layout(location = 3) in vec3 lightPos;
 layout(location = 4) in vec2 fragtex;
 layout(location = 5) in mat4 fragM;
+layout(location = 9) in vec4 guiColour;
+layout(location = 10) in float specHL;
 
 
 layout(set = 1, binding = 0) uniform sampler2D texSampler;
@@ -27,19 +29,19 @@ void main() {
     vec3 viewDirection = normalize(-positionForFP );
     vec3 halfVector = normalize( lightDirection + viewDirection);
 
-    float diffuse = max(0.0f,dot( normalForFP, lightDirection));
-    float specular = max(0.0f,dot( normalForFP, halfVector ) );
+    float diffuse = max(0.0f,dot( normcolour.xyz, lightDirection));
+    float specular = max(0.0f,dot( normcolour.xyz, halfVector ) );
     float distanceFromLight = length(lightPos - positionForFP);
 
     if (diffuse == 0.0) {
         specular = 0.0;
     } else {
-        specular = pow( specular, 64.0f );
+        specular = pow( specular, specHL );
     }
 
-    vec3 scatteredLight = 1.0f/distanceFromLight * fragColour * diffuse;
+    vec3 scatteredLight = colourTex.xyz * diffuse;
     vec3 reflectedLight = vec3(1.0f,1.0f,1.0f) * specular;
-    vec3 ambientLight = colourTex.xyz * 0.01f;
+    vec3 ambientLight = vec3(0.1f,0.1f,0.1f) * 0.05f;
 
     outColor = vec4(min( ambientLight + scatteredLight + reflectedLight, vec3(1,1,1)), 1.0);
     //outColor = vec4(normcolour.xyz, 1.0);
